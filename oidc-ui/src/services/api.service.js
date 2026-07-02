@@ -18,7 +18,7 @@ export class HttpError extends Error {
 }
 
 const get_CsrfToken = async () => {
-  let response = await axios.get(csrfEndpoint);
+  let response = await axios.get(csrfEndpoint, { withCredentials: true });
   return response.data.token;
 };
 
@@ -32,6 +32,9 @@ const allErrorStatusCodes = [
 export const ApiService = axios.create({
   withCredentials: true,
   baseURL: API_BASE_URL,
+  // eSignet expects the long token from GET /csrf/token JSON, not the XSRF-TOKEN cookie.
+  // Axios would otherwise overwrite X-XSRF-TOKEN with the cookie value on every POST.
+  xsrfCookieName: false,
 });
 
 ApiService.interceptors.request.use(

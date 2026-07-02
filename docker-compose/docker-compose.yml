@@ -46,11 +46,24 @@ services:
       - MOSIP_ESIGNET_DATABASE_PASSWORD=postgres
       - MOSIP_ESIGNET_MOCK_DOMAIN_URL=http://mock-identity-system:8082
       - MOSIP_ESIGNET_INTEGRATION_KEY_BINDER=MockKeyBindingWrapperService
+      # Browser-facing base URL: issuer + /authorize served by esignet-ui nginx on port 3000.
+      - MOSIP_ESIGNET_DOMAIN_URL=http://localhost:3000
+      # Token endpoint is called server-to-server by mimoto (another compose project),
+      # so it must be reachable from inside containers -> host.docker.internal.
+      # Client assertion "aud" validation uses this same discovery value, so it stays consistent.
+      - MOSIP_ESIGNET_TOKEN_ENDPOINT=http://host.docker.internal:3000/v1/esignet/oauth/v2/token
+      # Allow the credential scope used by inji-certify VCs (see certify credential_config.scope).
+      - MOSIP_ESIGNET_SUPPORTED_CREDENTIAL_SCOPES={'mosip_identity_vc_ldp','mock_identity_vc_ldp'}
+      # "aud" of the access token per credential scope; must be listed in certify's
+      # mosip.certify.authn.allowed-audiences (= ${mosip.certify.domain.url}/v1/certify/issuance/credential).
+      - "MOSIP_ESIGNET_CREDENTIAL_SCOPERESOURCEMAPPING={'mosip_identity_vc_ldp': 'http://localhost:3000/v1/esignet/vci/credential', 'mock_identity_vc_ldp': 'http://certify-nginx/v1/certify/issuance/credential'}"
       - SPRING_CACHE_TYPE=redis
       - SPRING_DATA_REDIS_HOST=redis-server
       - SPRING_REDIS_PASSWORD=
       - KAFKA_ENABLED=false
       - SPRING_AUTOCONFIGURE_EXCLUDE=org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+      # Workaround for oidc-ui 1.8.0: axios sends cookie UUID as X-XSRF-TOKEN instead of JSON token.
+      - MOSIP_ESIGNET_SECURITY_IGNORE_CSRF_URLS=/oidc/**,/oauth/**,/actuator/**,/favicon.ico,/error,/swagger-ui/**,/v3/api-docs/**,/linked-authorization/link-transaction,/linked-authorization/authenticate,/linked-authorization/consent,/binding/**,/client-mgmt/**,/system-info/**,/linked-authorization/v2/link-transaction,/linked-authorization/v2/authenticate,/linked-authorization/v2/consent,/authorization/**
     depends_on:
       - database
       - mock-identity-system
@@ -63,9 +76,20 @@ services:
       - 3000:3000
     environment:
       - container_user=mosip
+      - DEFAULT_THEME=#0e4f5c
+      - DEFAULT_TITLE=JAMCTA Digital ID
+      - DEFAULT_ID_PROVIDER_NAME=JAMCTA Digital ID
       - DEFAULT_WELLKNOWN=%5B%7B%22name%22%3A%22OpenID%20Configuration%22%2C%22value%22%3A%22%2F.well-known%2Fopenid-configuration%22%7D%2C%7B%22name%22%3A%22Jwks%20Json%22%2C%22value%22%3A%22%2F.well-known%2Fjwks.json%22%7D%2C%7B%22name%22%3A%22Authorization%20Server%22%2C%22value%22%3A%22%2F.well-known%2Foauth-authorization-server%22%7D%5D
       - SIGN_IN_WITH_ESIGNET_PLUGIN_URL=https://raw.githubusercontent.com/mosip/artifactory-ref-impl/master/artifacts/src/mosip-plugins/sign-in-with-esignet/sign-in-with-esignet.zip
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./jamaica-theme/theme/variables.css:/usr/share/nginx/html/theme/variables.css
+      - ./jamaica-theme/theme/config.json:/usr/share/nginx/html/theme/config.json
+      - ./jamaica-theme/locales/en.json:/usr/share/nginx/html/locales/en.json
+      - ./jamaica-theme/images/brand_logo.png:/usr/share/nginx/html/images/brand_logo.png
+      - ./jamaica-theme/images/logo.png:/usr/share/nginx/html/logo.png
+      - ./jamaica-theme/images/footer_logo.png:/usr/share/nginx/html/images/footer_logo.png
+      - ./jamaica-theme/images/top_left_bg_logo.svg:/usr/share/nginx/html/images/top_left_bg_logo.svg
+      - ./jamaica-theme/images/bottom_right_bg_logo.svg:/usr/share/nginx/html/images/bottom_right_bg_logo.svg
     depends_on:
       - esignet
