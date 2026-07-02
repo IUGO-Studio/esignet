@@ -46,6 +46,13 @@ services:
       - MOSIP_ESIGNET_DATABASE_PASSWORD=postgres
       - MOSIP_ESIGNET_MOCK_DOMAIN_URL=http://mock-identity-system:8082
       - MOSIP_ESIGNET_INTEGRATION_KEY_BINDER=MockKeyBindingWrapperService
+      # Public base URL (ALB hostname). Used as issuer and in OIDC discovery metadata.
+      - MOSIP_ESIGNET_DOMAIN_URL=https://esignet.inji-jm.iugolabs.com
+      - MOSIP_ESIGNET_TOKEN_ENDPOINT=https://esignet.inji-jm.iugolabs.com/v1/esignet/oauth/v2/token
+      - MOSIP_ESIGNET_SUPPORTED_CREDENTIAL_SCOPES={'mock_identity_vc_ldp'}
+      - "MOSIP_ESIGNET_CREDENTIAL_SCOPERESOURCEMAPPING={'mock_identity_vc_ldp': 'https://certify.inji-jm.iugolabs.com/v1/certify/issuance/credential'}"
+      # Workaround for oidc-ui 1.8.0: axios sends cookie UUID as X-XSRF-TOKEN instead of JSON token.
+      - MOSIP_ESIGNET_SECURITY_IGNORE_CSRF_URLS=/oidc/**,/oauth/**,/actuator/**,/favicon.ico,/error,/swagger-ui/**,/v3/api-docs/**,/linked-authorization/link-transaction,/linked-authorization/authenticate,/linked-authorization/consent,/binding/**,/client-mgmt/**,/system-info/**,/linked-authorization/v2/link-transaction,/linked-authorization/v2/authenticate,/linked-authorization/v2/consent,/authorization/**
       - SPRING_CACHE_TYPE=redis
       - SPRING_DATA_REDIS_HOST=redis-server
       - SPRING_REDIS_PASSWORD=
