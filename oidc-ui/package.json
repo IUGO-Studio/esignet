@@ -37,10 +37,10 @@
     "react-tooltip": "^5.7.5"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "test:coverage": "react-scripts test --coverage src",
+    "start": "craco start",
+    "build": "craco build",
+    "test": "craco test",
+    "test:coverage": "craco test --coverage src",
     "eject": "react-scripts eject",
     "sonar": "sonar-scanner",
     "lint": "eslint src/**/*.{js,jsx}",
@@ -65,6 +65,7 @@
     ]
   },
   "devDependencies": {
+    "@craco/craco": "^7.1.0",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.4.5",
     "@testing-library/react": "^16.0.0",

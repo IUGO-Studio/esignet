@@ -118,6 +118,32 @@ describe('FaceLiveness', () => {
     expect(createAttempt).not.toHaveBeenCalled();
   });
 
+  test('TRN input keeps digits only and caps at 9 characters', () => {
+    renderComponent();
+
+    fireEvent.change(screen.getByLabelText('trn_label'), {
+      target: { value: '12ab34567890123' },
+    });
+
+    expect(screen.getByLabelText('trn_label')).toHaveValue('123456789');
+  });
+
+  test('create failure shows faceLiveness-prefixed banner key', async () => {
+    createAttempt.mockRejectedValue({
+      response: { data: { code: 'UNKNOWN_BACKEND_CODE' } },
+    });
+
+    renderComponent();
+    fireEvent.change(screen.getByLabelText('trn_label'), {
+      target: { value: '123456789' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'start_liveness' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('faceLiveness.attempt_create_failed')).toBeInTheDocument();
+    });
+  });
+
   test('createAttempt body is transactionId and trn; attemptId comes from response', async () => {
     createAttempt.mockResolvedValue({
       ...createdAttempt,

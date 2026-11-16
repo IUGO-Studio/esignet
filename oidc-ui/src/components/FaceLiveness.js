@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { FaceLivenessDetector } from '@aws-amplify/ui-react-liveness';
@@ -22,6 +22,7 @@ const VIEW = {
 };
 
 const TRN_DIGITS_ONLY = /^\d+$/;
+const TRN_MAX_LENGTH = 9;
 
 export default function FaceLiveness({
   authService,
@@ -52,6 +53,12 @@ export default function FaceLiveness({
   const [region, setRegion] = useState(null);
   const [browserCredentials, setBrowserCredentials] = useState(null);
 
+  const credentialProvider = useMemo(
+    () =>
+      browserCredentials ? buildCredentialProvider(browserCredentials) : null,
+    [browserCredentials]
+  );
+
   const clearCaptureState = () => {
     setAttemptId(null);
     setSessionId(null);
@@ -59,24 +66,42 @@ export default function FaceLiveness({
     setBrowserCredentials(null);
   };
 
-  const showError = (messageKey) => {
+  const LOCAL_ERROR_KEYS = {
+    invalid_trn: true,
+    attempt_create_failed: true,
+    attempt_complete_failed: true,
+    liveness_rejected: true,
+    liveness_capture_failed: true,
+  };
+
+  const showLocalError = (messageKey, fallbackKey = 'liveness_rejected') => {
+    const key = LOCAL_ERROR_KEYS[messageKey] ? messageKey : fallbackKey;
     setErrorBanner({
-      errorCode: messageKey,
+      // ErrorBanner calls t(errorCode) from the root locale object.
+      errorCode: `${i18nKeyPrefix1}.${key}`,
+      show: true,
+    });
+  };
+
+  const showEsignetError = (errorCode) => {
+    setErrorBanner({
+      errorCode: `${i18nKeyPrefix2}.${errorCode}`,
       show: true,
     });
   };
 
   const handleTrnChange = (e) => {
-    const value = e.target.value.trim();
+    const value = e.target.value.replace(/\D/g, '').slice(0, TRN_MAX_LENGTH);
     setTrn(value);
     setErrorBanner(null);
   };
 
-  const isTrnValid = () => TRN_DIGITS_ONLY.test(trn) && trn.length >= 9;
+  const isTrnValid = () =>
+    TRN_DIGITS_ONLY.test(trn) && trn.length === TRN_MAX_LENGTH;
 
   const startAttempt = async () => {
     if (!isTrnValid()) {
-      showError('invalid_trn');
+      showLocalError('invalid_trn');
       return;
     }
 
@@ -94,7 +119,7 @@ export default function FaceLiveness({
       setView(VIEW.CAPTURE);
     } catch (error) {
       setStatus({ state: states.LOADED, msg: '' });
-      showError(error?.response?.data?.code || 'attempt_create_failed');
+      showLocalError(error?.response?.data?.code, 'attempt_create_failed');
     }
   };
 
@@ -123,7 +148,7 @@ export default function FaceLiveness({
         redirectOnError(errors[0].errorCode, t2(`${errors[0].errorCode}`));
         return;
       }
-      showError(errors[0].errorCode);
+      showEsignetError(errors[0].errorCode);
       return;
     }
 
@@ -162,19 +187,19 @@ export default function FaceLiveness({
 
       clearCaptureState();
       setView(VIEW.TRN);
-      showError(completed.failureCode || 'liveness_rejected');
+      showLocalError(completed.failureCode, 'liveness_rejected');
     } catch (error) {
       setStatus({ state: states.LOADED, msg: '' });
       clearCaptureState();
       setView(VIEW.TRN);
-      showError(error?.response?.data?.code || 'attempt_complete_failed');
+      showLocalError(error?.response?.data?.code, 'attempt_complete_failed');
     }
   };
 
   const handleLivenessError = () => {
     clearCaptureState();
     setView(VIEW.TRN);
-    showError('liveness_capture_failed');
+    showLocalError('liveness_capture_failed');
   };
 
   const handleUserCancel = () => {
@@ -194,7 +219,7 @@ export default function FaceLiveness({
     view === VIEW.CAPTURE &&
     sessionId &&
     region &&
-    browserCredentials;
+    credentialProvider;
 
   return (
     <>
@@ -234,6 +259,7 @@ export default function FaceLiveness({
               type="text"
               inputMode="numeric"
               autoComplete="off"
+              maxLength={TRN_MAX_LENGTH}
               value={trn}
               onChange={handleTrnChange}
               placeholder={t1('trn_placeholder')}
@@ -261,7 +287,7 @@ export default function FaceLiveness({
             onAnalysisComplete={handleAnalysisComplete}
             onError={handleLivenessError}
             onUserCancel={handleUserCancel}
-            credentialProvider={buildCredentialProvider(browserCredentials)}
+            credentialProvider={credentialProvider}
           />
         </div>
       )}
