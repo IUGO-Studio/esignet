@@ -179,6 +179,25 @@
     "enter_otp": "Enter OTP",
     "and": "and"
   },
+  "faceLiveness": {
+    "trn": "TRN",
+    "trn_label": "Taxpayer Registration Number (TRN)",
+    "trn_placeholder": "Enter your TRN",
+    "start_liveness": "Start Face Liveness",
+    "retry": "Retry",
+    "creating_attempt_msg": "Preparing face liveness session",
+    "completing_attempt_msg": "Verifying face liveness",
+    "authenticating_msg": "Authenticating",
+    "liveness_passed_msg": "Face liveness passed. Identity verification is still in progress.",
+    "invalid_trn": "Please enter a valid TRN",
+    "attempt_create_failed": "Unable to start face liveness. Please try again.",
+    "attempt_complete_failed": "Unable to complete face liveness. Please try again.",
+    "liveness_rejected": "Face liveness was not accepted. Please try again.",
+    "liveness_capture_failed": "Face capture failed. Please try again.",
+    "login_with_id": "Login with {{currentID}}",
+    "verify_with_id": "Verify with {{currentID}}",
+    "link_using_id": "Link using {{currentID}}"
+  },
   "signInOption": {
     "login_option_heading": "Choose How You Want to Login:",
     "login_with_id": "Login with {{option}}",
@@ -187,6 +206,7 @@
     "PIN": "PIN",
     "Biometrics": "Biometrics",
     "BIO": "Biometrics",
+    "FLV": "Face Liveness",
     "QRCode": "QR Code",
     "OTP": "OTP",
     "PWD": "Password",

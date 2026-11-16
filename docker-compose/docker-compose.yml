@@ -65,7 +65,10 @@ services:
       - redis
 
   esignet-ui:
-    image: "mosipid/oidc-ui:1.8.0"
+    build:
+      context: ../oidc-ui
+      dockerfile: Dockerfile
+    image: "inji-jm/oidc-ui:flv-local"
     user: root
     ports:
       - 3000:3000
@@ -88,3 +91,5 @@ services:
       - ./jamaica-theme/images/bottom_right_bg_logo.svg:/usr/share/nginx/html/images/bottom_right_bg_logo.svg
     depends_on:
       - esignet
+    # Biometric Service host used by nginx /attempts proxy (see nginx.conf).
+    # Default service name on the compose network: biometric-service:8080.

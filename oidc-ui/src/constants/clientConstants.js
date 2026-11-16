@@ -12,6 +12,7 @@ const challengeTypes = {
   pswd: 'PWD',
   kbi: 'KBI',
   idt: 'IDT',
+  flv: 'FLV',
 };
 
 const challengeFormats = {
@@ -22,6 +23,7 @@ const challengeFormats = {
   pswd: 'alpha-numeric',
   kbi: 'base64url-encoded-json',
   idt: 'base64url-encoded-json',
+  flv: 'alpha-numeric',
 };
 
 const validAuthFactors = {
@@ -32,6 +34,7 @@ const validAuthFactors = {
   WLA: 'WLA',
   KBI: 'KBI',
   IDT: 'IDT',
+  FLV: 'FLV',
 };
 
 const buttonTypes = {
@@ -118,6 +121,7 @@ const modalityIconPath = {
   BIO: 'images/bio_icon.svg',
   PSWD: 'images/pwd_icon.svg',
   KBI: 'images/kbi_icon.svg',
+  FLV: 'images/bio_icon.svg',
 };
 
 const errorCodeObj = {
