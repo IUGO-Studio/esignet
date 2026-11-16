@@ -29,6 +29,7 @@ import {
 } from '../constants/clientConstants';
 import langConfigService from './../services/langConfigService';
 import IdToken from '../components/IdToken';
+import FaceLiveness from '../components/FaceLiveness';
 
 function InitiateL1Biometrics(
   openIDConnectService,
@@ -126,6 +127,19 @@ function InitiateIdToken(openIDConnectService) {
   });
 }
 
+function InitiateFaceLiveness(
+  openIDConnectService,
+  backButtonDiv,
+  secondaryHeading
+) {
+  return React.createElement(FaceLiveness, {
+    authService: new authService(openIDConnectService),
+    openIDConnectService: openIDConnectService,
+    backButtonDiv: backButtonDiv,
+    secondaryHeading: secondaryHeading,
+  });
+}
+
 function InitiateInvalidAuthFactor(errorMsg) {
   return React.createElement(() => <div>{errorMsg}</div>);
 }
@@ -183,6 +197,14 @@ function createDynamicLoginElements(
 
   if (authFactorType === validAuthFactors.IDT) {
     return InitiateIdToken(oidcService);
+  }
+
+  if (authFactorType === validAuthFactors.FLV) {
+    return InitiateFaceLiveness(
+      oidcService,
+      backButtonDiv,
+      tempSecondaryHeading
+    );
   }
 
   // default element

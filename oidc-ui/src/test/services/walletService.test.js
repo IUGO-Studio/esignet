@@ -56,6 +56,19 @@ describe('Auth Factor Utilities', () => {
         id: 'login_with_bio',
       });
     });
+
+    it('should return object for FLV type with biometrics icon', () => {
+      const authFactor = [{ type: 'FLV' }];
+
+      const result = toAuthfactor(authFactor);
+
+      expect(result).toEqual({
+        label: 'FLV',
+        value: authFactor[0],
+        icon: modalityIconPath['FLV'],
+        id: 'login_with_flv',
+      });
+    });
   });
 
   describe('getAllAuthFactors', () => {
