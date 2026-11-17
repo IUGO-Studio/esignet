@@ -5,7 +5,11 @@ import { FaceLivenessDetector } from '@aws-amplify/ui-react-liveness';
 import '@aws-amplify/ui-react-liveness/styles.css';
 import LoadingIndicator from '../common/LoadingIndicator';
 import ErrorBanner from '../common/ErrorBanner';
-import { challengeFormats, challengeTypes } from '../constants/clientConstants';
+import {
+  challengeFormats,
+  challengeTypes,
+  configurationKeys,
+} from '../constants/clientConstants';
 import { LoadingStates as states } from '../constants/states';
 import redirectOnError from '../helpers/redirectOnError';
 import {
@@ -23,6 +27,31 @@ const VIEW = {
 
 const TRN_DIGITS_ONLY = /^\d+$/;
 const TRN_MAX_LENGTH = 9;
+
+/**
+ * Derives the auth-transaction id that eSignet passes to Authenticator.doKycAuth.
+ * Matches AuthorizationServiceImpl.getAuthTransactionId (and L1Biometrics).
+ */
+export const getAuthTransactionId = (oidcTransactionId, authTxnIdLength) => {
+  if (!oidcTransactionId || !authTxnIdLength) {
+    return '';
+  }
+
+  const normalized = oidcTransactionId.replace(/-|_/gi, '');
+  if (!normalized.length) {
+    return '';
+  }
+
+  let transactionId = '';
+  let i = normalized.length - 1;
+  while (transactionId.length < authTxnIdLength) {
+    transactionId += normalized.charAt(i--);
+    if (i < 0) {
+      i = normalized.length - 1;
+    }
+  }
+  return transactionId;
+};
 
 export default function FaceLiveness({
   authService,
@@ -43,6 +72,12 @@ export default function FaceLiveness({
   const navigate = useNavigate();
   const post_AuthenticateUser = authService.post_AuthenticateUser;
   const buildRedirectParams = authService.buildRedirectParamsV2;
+
+  const authTxnIdLengthValue =
+    openIDConnectService.getEsignetConfiguration?.(
+      configurationKeys.authTxnIdLength
+    ) ?? process.env.REACT_APP_AUTH_TXN_ID_LENGTH;
+  const authTxnIdLength = parseInt(authTxnIdLengthValue, 10) || 10;
 
   const [view, setView] = useState(VIEW.TRN);
   const [trn, setTrn] = useState('');
@@ -105,12 +140,16 @@ export default function FaceLiveness({
       return;
     }
 
-    const transactionId = openIDConnectService.getTransactionId();
+    const oidcTransactionId = openIDConnectService.getTransactionId();
+    const authTransactionId = getAuthTransactionId(
+      oidcTransactionId,
+      authTxnIdLength
+    );
     setStatus({ state: states.LOADING, msg: 'creating_attempt_msg' });
     setErrorBanner(null);
 
     try {
-      const created = await createAttempt(transactionId, trn);
+      const created = await createAttempt(authTransactionId, trn);
       setAttemptId(created.attemptId);
       setSessionId(created.sessionId);
       setRegion(created.credentials.region);
@@ -167,12 +206,16 @@ export default function FaceLiveness({
   };
 
   const handleAnalysisComplete = async () => {
-    const transactionId = openIDConnectService.getTransactionId();
+    const oidcTransactionId = openIDConnectService.getTransactionId();
+    const authTransactionId = getAuthTransactionId(
+      oidcTransactionId,
+      authTxnIdLength
+    );
     setStatus({ state: states.LOADING, msg: 'completing_attempt_msg' });
     setErrorBanner(null);
 
     try {
-      const completed = await completeAttempt(attemptId, transactionId);
+      const completed = await completeAttempt(attemptId, authTransactionId);
       setStatus({ state: states.LOADED, msg: '' });
 
       if (completed.status === ATTEMPT_STATUS.APPROVED) {

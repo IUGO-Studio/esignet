@@ -12,9 +12,11 @@ import io.mosip.esignet.api.exception.KycAuthException;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Objects;
 
@@ -66,8 +68,9 @@ public class BiometricAttemptClient {
 
         HttpRequest request;
         try {
+            String encodedAttemptId = URLEncoder.encode(attemptId, StandardCharsets.UTF_8);
             request = HttpRequest.newBuilder()
-                    .uri(URI.create(biometricBaseUrl + "/attempts/" + attemptId + "/consume"))
+                    .uri(URI.create(biometricBaseUrl + "/attempts/" + encodedAttemptId + "/consume"))
                     .timeout(REQUEST_TIMEOUT)
                     .header("Authorization", "Bearer " + pluginCredential)
                     .header("Content-Type", "application/json")

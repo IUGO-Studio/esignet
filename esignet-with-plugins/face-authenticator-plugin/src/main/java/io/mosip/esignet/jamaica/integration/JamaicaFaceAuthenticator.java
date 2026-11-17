@@ -6,6 +6,7 @@
 package io.mosip.esignet.jamaica.integration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.mosip.esignet.api.dto.AuthChallenge;
 import io.mosip.esignet.api.dto.KycAuthDto;
 import io.mosip.esignet.api.dto.KycAuthResult;
@@ -26,8 +27,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.net.http.HttpClient;
+import java.util.Base64;
 import java.util.List;
-import java.util.UUID;
 
 import static io.mosip.esignet.api.util.ErrorConstants.AUTH_FAILED;
 import static io.mosip.esignet.api.util.ErrorConstants.DATA_EXCHANGE_FAILED;
@@ -40,6 +41,8 @@ import static io.mosip.esignet.api.util.ErrorConstants.SEND_OTP_FAILED;
 /**
  * eSignet {@link Authenticator} for Jamaica face liveness.
  * Consumes an already-approved biometric attempt; does not call AWS.
+ * KYC exchange returns a minimal Base64URL JSON payload ({@code sub} only);
+ * eSignet signs PLAIN_JSON userinfo itself.
  */
 @ConditionalOnProperty(
         value = "mosip.esignet.integration.authenticator",
@@ -52,6 +55,7 @@ public class JamaicaFaceAuthenticator implements Authenticator {
     static final String AUTH_FACTOR_FLV = "FLV";
 
     private final BiometricAttemptClient biometricAttemptClient;
+    private final ObjectMapper objectMapper;
 
     public JamaicaFaceAuthenticator(
             @Value("${mosip.esignet.jamaica.biometric-base-url}") String biometricBaseUrl,
@@ -61,11 +65,17 @@ public class JamaicaFaceAuthenticator implements Authenticator {
                 biometricBaseUrl,
                 pluginCredential,
                 HttpClient.newBuilder().build(),
-                objectMapper));
+                objectMapper),
+                objectMapper);
+    }
+
+    JamaicaFaceAuthenticator(BiometricAttemptClient biometricAttemptClient, ObjectMapper objectMapper) {
+        this.biometricAttemptClient = biometricAttemptClient;
+        this.objectMapper = objectMapper;
     }
 
     JamaicaFaceAuthenticator(BiometricAttemptClient biometricAttemptClient) {
-        this.biometricAttemptClient = biometricAttemptClient;
+        this(biometricAttemptClient, new ObjectMapper());
     }
 
     @Override
@@ -83,15 +93,31 @@ public class JamaicaFaceAuthenticator implements Authenticator {
         String trn = biometricAttemptClient.consume(
                 attemptId, kycAuthDto.getTransactionId(), kycAuthDto.getIndividualId());
 
-        String kycToken = UUID.randomUUID().toString();
         log.info("Face liveness KYC auth succeeded for relyingPartyId={}", relyingPartyId);
-        return new KycAuthResult(kycToken, trn);
+        return new KycAuthResult(trn, trn);
     }
 
     @Override
     public KycExchangeResult doKycExchange(
             String relyingPartyId, String clientId, KycExchangeDto kycExchangeDto) throws KycExchangeException {
-        throw new KycExchangeException(DATA_EXCHANGE_FAILED, "KYC exchange claims source is not configured");
+        if (kycExchangeDto == null
+                || kycExchangeDto.getIndividualId() == null
+                || kycExchangeDto.getIndividualId().isBlank()
+                || kycExchangeDto.getKycToken() == null
+                || kycExchangeDto.getKycToken().isBlank()) {
+            throw new KycExchangeException(DATA_EXCHANGE_FAILED, "Missing individualId or kycToken");
+        }
+
+        try {
+            ObjectNode claims = objectMapper.createObjectNode();
+            claims.put("sub", kycExchangeDto.getIndividualId());
+            String encoded = Base64.getUrlEncoder()
+                    .withoutPadding()
+                    .encodeToString(objectMapper.writeValueAsBytes(claims));
+            return new KycExchangeResult(encoded);
+        } catch (Exception e) {
+            throw new KycExchangeException(DATA_EXCHANGE_FAILED, "Failed to build KYC exchange payload");
+        }
     }
 
     @Override

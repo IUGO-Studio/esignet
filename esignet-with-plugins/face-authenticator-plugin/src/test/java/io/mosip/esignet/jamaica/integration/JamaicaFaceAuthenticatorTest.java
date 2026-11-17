@@ -12,6 +12,8 @@ import com.sun.net.httpserver.HttpServer;
 import io.mosip.esignet.api.dto.AuthChallenge;
 import io.mosip.esignet.api.dto.KycAuthDto;
 import io.mosip.esignet.api.dto.KycAuthResult;
+import io.mosip.esignet.api.dto.KycExchangeDto;
+import io.mosip.esignet.api.dto.KycExchangeResult;
 import io.mosip.esignet.api.exception.KycAuthException;
 import io.mosip.esignet.api.exception.KycExchangeException;
 import io.mosip.esignet.api.exception.KycSigningCertificateException;
@@ -25,15 +27,16 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.mosip.esignet.api.util.ErrorConstants.AUTH_FAILED;
+import static io.mosip.esignet.api.util.ErrorConstants.DATA_EXCHANGE_FAILED;
 import static io.mosip.esignet.api.util.ErrorConstants.INVALID_AUTH_FACTOR_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -74,7 +77,7 @@ class JamaicaFaceAuthenticatorTest {
         String baseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
         BiometricAttemptClient client = new BiometricAttemptClient(
                 baseUrl, CREDENTIAL, HttpClient.newHttpClient(), objectMapper);
-        authenticator = new JamaicaFaceAuthenticator(client);
+        authenticator = new JamaicaFaceAuthenticator(client, objectMapper);
     }
 
     @AfterEach
@@ -85,11 +88,10 @@ class JamaicaFaceAuthenticatorTest {
     }
 
     @Test
-    void doKycAuthConsumesApprovedAttemptAndReturnsTrnAsPsut() throws Exception {
+    void doKycAuthConsumesApprovedAttemptAndReturnsTrnAsTokens() throws Exception {
         KycAuthResult result = authenticator.doKycAuth("rp-1", "client-1", authDto());
 
-        assertNotNull(result.getKycToken());
-        assertFalse(result.getKycToken().isBlank());
+        assertEquals(TRN, result.getKycToken());
         assertEquals(TRN, result.getPartnerSpecificUserToken());
         assertEquals("/attempts/" + ATTEMPT_ID + "/consume", lastPath.get());
         assertEquals("Bearer " + CREDENTIAL, lastAuthorization.get());
@@ -161,8 +163,32 @@ class JamaicaFaceAuthenticatorTest {
     }
 
     @Test
+    void doKycExchangeReturnsBase64UrlJsonWithSub() throws Exception {
+        KycExchangeDto dto = new KycExchangeDto();
+        dto.setIndividualId(TRN);
+        dto.setKycToken(TRN);
+
+        KycExchangeResult result = authenticator.doKycExchange("rp-1", "client-1", dto);
+
+        String decoded = new String(
+                Base64.getUrlDecoder().decode(result.getEncryptedKyc()), StandardCharsets.UTF_8);
+        JsonNode claims = objectMapper.readTree(decoded);
+        assertEquals(TRN, claims.get("sub").asText());
+        assertFalse(result.getEncryptedKyc().contains("."));
+    }
+
+    @Test
+    void doKycExchangeFailsWhenIndividualIdMissing() {
+        KycExchangeDto dto = new KycExchangeDto();
+        dto.setKycToken(TRN);
+
+        KycExchangeException ex = assertThrows(
+                KycExchangeException.class, () -> authenticator.doKycExchange("rp-1", "client-1", dto));
+        assertEquals(DATA_EXCHANGE_FAILED, ex.getErrorCode());
+    }
+
+    @Test
     void unsupportedSpiMethodsFailExplicitly() {
-        assertThrows(KycExchangeException.class, () -> authenticator.doKycExchange("rp", "client", null));
         assertThrows(SendOtpException.class, () -> authenticator.sendOtp("rp", "client", null));
         assertThrows(KycSigningCertificateException.class, authenticator::getAllKycSigningCertificates);
         assertFalse(authenticator.isSupportedOtpChannel("email"));

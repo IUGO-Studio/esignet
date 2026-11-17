@@ -23,6 +23,14 @@ service should get started with the configured plugin.
 `jamaica-face-authenticator.jar` implements `Authenticator` for the FLV factor. It consumes an already-approved attempt
 from the Jamaica biometric service and does not depend on the AWS SDK.
 
+`doKycAuth` calls `POST /attempts/{attemptId}/consume` with the eSignet **auth transaction id** (not the raw OIDC
+transaction id) and the TRN as `individualId`. oidc-ui Face Liveness must create/complete attempts with that same
+auth transaction id. `doKycExchange` returns a minimal Base64URL JSON payload with `sub` only (PLAIN_JSON); eSignet
+signs userinfo. A richer claims source for Jamaica is not configured yet.
+
+`MOSIP_ESIGNET_JAMAICA_BIOMETRIC_BASE_URL` and `MOSIP_ESIGNET_JAMAICA_PLUGIN_CREDENTIAL` are required when this
+authenticator is selected; missing values fail Spring bean creation at startup.
+
 To load it at runtime:
 
 ```bash

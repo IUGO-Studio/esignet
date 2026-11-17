@@ -14,6 +14,7 @@
 	</parent>
 
 	<artifactId>face-authenticator-plugin</artifactId>
+	<version>${project.parent.version}</version>
 	<packaging>jar</packaging>
 	<name>face-authenticator-plugin</name>
 	<description>eSignet Authenticator plugin that consumes approved Face Liveness attempts from the Jamaica biometric service</description>

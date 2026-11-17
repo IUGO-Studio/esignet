@@ -1,7 +1,9 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import FaceLiveness from '../../components/FaceLiveness';
+import FaceLiveness, {
+  getAuthTransactionId,
+} from '../../components/FaceLiveness';
 import {
   ATTEMPT_STATUS,
   completeAttempt,
@@ -59,7 +61,11 @@ describe('FaceLiveness', () => {
     getNonce: () => 'nonce',
     getState: () => 'state',
     getOAuthDetails: () => ({ clientId: 'client' }),
+    getEsignetConfiguration: () => '10',
   };
+
+  // auth txn id for oidc "txn-1" with length 10 (AuthorizationServiceImpl algorithm)
+  const expectedAuthTransactionId = getAuthTransactionId('txn-1', 10);
 
   const authService = {
     post_AuthenticateUser,
@@ -144,7 +150,7 @@ describe('FaceLiveness', () => {
     });
   });
 
-  test('createAttempt body is transactionId and trn; attemptId comes from response', async () => {
+  test('createAttempt uses auth transactionId and trn; attemptId comes from response', async () => {
     createAttempt.mockResolvedValue({
       ...createdAttempt,
       attemptId: 'attempt-from-service',
@@ -153,7 +159,11 @@ describe('FaceLiveness', () => {
     renderComponent();
     await startCapture();
 
-    expect(createAttempt).toHaveBeenCalledWith('txn-1', '123456789');
+    expect(createAttempt).toHaveBeenCalledWith(
+      expectedAuthTransactionId,
+      '123456789'
+    );
+    expect(expectedAuthTransactionId).toBe('1nxt1nxt1n');
   });
 
   test('onAnalysisComplete calls complete and not authenticate when LIVENESS_PASSED', async () => {
@@ -169,7 +179,10 @@ describe('FaceLiveness', () => {
     fireEvent.click(screen.getByText('complete-analysis'));
 
     await waitFor(() => {
-      expect(completeAttempt).toHaveBeenCalledWith('attempt-1', 'txn-1');
+      expect(completeAttempt).toHaveBeenCalledWith(
+        'attempt-1',
+        expectedAuthTransactionId
+      );
     });
     expect(post_AuthenticateUser).not.toHaveBeenCalled();
     expect(await screen.findByTestId('liveness-passed')).toBeInTheDocument();
