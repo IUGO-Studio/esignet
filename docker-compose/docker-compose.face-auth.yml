@@ -1,0 +1,14 @@
+# Override to load the Jamaica Face Authenticator instead of the mock plugin.
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.face-auth.yml up esignet
+#
+# Requires a reachable biometric service and a matching plugin credential.
+services:
+  esignet:
+    environment:
+      - plugin_name_env=jamaica-face-authenticator.jar
+      - MOSIP_ESIGNET_INTEGRATION_SCAN_BASE_PACKAGE=io.mosip.esignet.jamaica.integration
+      - MOSIP_ESIGNET_INTEGRATION_AUTHENTICATOR=JamaicaFaceAuthenticator
+      - MOSIP_ESIGNET_INTEGRATION_KEY_BINDER=NoOpKeyBinder
+      - MOSIP_ESIGNET_JAMAICA_BIOMETRIC_BASE_URL=${MOSIP_ESIGNET_JAMAICA_BIOMETRIC_BASE_URL:-http://host.docker.internal:8080}
+      - MOSIP_ESIGNET_JAMAICA_PLUGIN_CREDENTIAL=${MOSIP_ESIGNET_JAMAICA_PLUGIN_CREDENTIAL:?set MOSIP_ESIGNET_JAMAICA_PLUGIN_CREDENTIAL}
