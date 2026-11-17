@@ -23,7 +23,7 @@ const challengeFormats = {
   pswd: 'alpha-numeric',
   kbi: 'base64url-encoded-json',
   idt: 'base64url-encoded-json',
-  flv: 'alpha-numeric',
+  flv: 'uuid',
 };
 
 const validAuthFactors = {

@@ -118,12 +118,11 @@ export default function FaceLiveness({
     });
   };
 
-  const showEsignetError = (errorCode) => {
-    setErrorBanner({
-      errorCode: `${i18nKeyPrefix2}.${errorCode}`,
-      show: true,
-    });
-  };
+  /**
+   * Biometric Service returns { error }; some stubs still use { code }.
+   */
+  const biometricErrorCode = (error) =>
+    error?.response?.data?.error || error?.response?.data?.code;
 
   const handleTrnChange = (e) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, TRN_MAX_LENGTH);
@@ -134,19 +133,23 @@ export default function FaceLiveness({
   const isTrnValid = () =>
     TRN_DIGITS_ONLY.test(trn) && trn.length === TRN_MAX_LENGTH;
 
-  const startAttempt = async () => {
-    if (!isTrnValid()) {
-      showLocalError('invalid_trn');
-      return;
-    }
-
+  const getAuthTransactionIdForRequest = () => {
     const oidcTransactionId = openIDConnectService.getTransactionId();
-    const authTransactionId = getAuthTransactionId(
-      oidcTransactionId,
-      authTxnIdLength
-    );
+    return getAuthTransactionId(oidcTransactionId, authTxnIdLength);
+  };
+
+  /**
+   * Creates a Face Liveness attempt and mounts capture.
+   * @param {{ clearError?: boolean }} options when clearError is false the
+   * current banner (e.g. liveness_rejected) is kept across the new session.
+   * @returns {Promise<boolean>} true when capture is ready
+   */
+  const createAndMountAttempt = async ({ clearError = true } = {}) => {
+    const authTransactionId = getAuthTransactionIdForRequest();
     setStatus({ state: states.LOADING, msg: 'creating_attempt_msg' });
-    setErrorBanner(null);
+    if (clearError) {
+      setErrorBanner(null);
+    }
 
     try {
       const created = await createAttempt(authTransactionId, trn);
@@ -156,10 +159,34 @@ export default function FaceLiveness({
       setBrowserCredentials(created.credentials);
       setStatus({ state: states.LOADED, msg: '' });
       setView(VIEW.CAPTURE);
+      return true;
     } catch (error) {
       setStatus({ state: states.LOADED, msg: '' });
-      showLocalError(error?.response?.data?.code, 'attempt_create_failed');
+      clearCaptureState();
+      setView(VIEW.TRN);
+      showLocalError(biometricErrorCode(error), 'attempt_create_failed');
+      return false;
     }
+  };
+
+  const startAttempt = async () => {
+    if (!isTrnValid()) {
+      showLocalError('invalid_trn');
+      return;
+    }
+
+    await createAndMountAttempt({ clearError: true });
+  };
+
+  const failAuthenticateToTrn = (errorCode) => {
+    // Spent session must not remount; next Start creates a new attempt.
+    clearCaptureState();
+    setView(VIEW.TRN);
+    setStatus({ state: states.LOADED, msg: '' });
+    setErrorBanner({
+      errorCode,
+      show: true,
+    });
   };
 
   const authenticateWithAttempt = async (approvedAttemptId) => {
@@ -173,50 +200,49 @@ export default function FaceLiveness({
     ];
 
     setStatus({ state: states.LOADING, msg: 'authenticating_msg' });
-    const authenticateResponse = await post_AuthenticateUser(
-      transactionId,
-      trn,
-      challengeList
-    );
-    setStatus({ state: states.LOADED, msg: '' });
+    try {
+      const authenticateResponse = await post_AuthenticateUser(
+        transactionId,
+        trn,
+        challengeList
+      );
+      setStatus({ state: states.LOADED, msg: '' });
 
-    const { response, errors } = authenticateResponse;
+      const { response, errors } = authenticateResponse;
 
-    if (errors !== null && errors.length > 0) {
-      if (errors[0].errorCode === 'invalid_transaction') {
-        redirectOnError(errors[0].errorCode, t2(`${errors[0].errorCode}`));
+      if (errors !== null && errors.length > 0) {
+        if (errors[0].errorCode === 'invalid_transaction') {
+          redirectOnError(errors[0].errorCode, t2(`${errors[0].errorCode}`));
+          return;
+        }
+        failAuthenticateToTrn(`${i18nKeyPrefix2}.${errors[0].errorCode}`);
         return;
       }
-      showEsignetError(errors[0].errorCode);
-      return;
+
+      setErrorBanner(null);
+      const params = buildRedirectParams({
+        nonce: openIDConnectService.getNonce(),
+        state: openIDConnectService.getState(),
+        oauthResponse: openIDConnectService.getOAuthDetails(),
+        consentAction: response.consentAction,
+        ui_locales: i18n.language,
+      });
+
+      navigate(process.env.PUBLIC_URL + '/claim-details' + params, {
+        replace: true,
+      });
+    } catch (error) {
+      failAuthenticateToTrn(`${i18nKeyPrefix2}.authentication_failed_msg`);
     }
-
-    setErrorBanner(null);
-    const params = buildRedirectParams({
-      nonce: openIDConnectService.getNonce(),
-      state: openIDConnectService.getState(),
-      oauthResponse: openIDConnectService.getOAuthDetails(),
-      consentAction: response.consentAction,
-      ui_locales: i18n.language,
-    });
-
-    navigate(process.env.PUBLIC_URL + '/claim-details' + params, {
-      replace: true,
-    });
   };
 
   const handleAnalysisComplete = async () => {
-    const oidcTransactionId = openIDConnectService.getTransactionId();
-    const authTransactionId = getAuthTransactionId(
-      oidcTransactionId,
-      authTxnIdLength
-    );
+    const authTransactionId = getAuthTransactionIdForRequest();
     setStatus({ state: states.LOADING, msg: 'completing_attempt_msg' });
     setErrorBanner(null);
 
     try {
       const completed = await completeAttempt(attemptId, authTransactionId);
-      setStatus({ state: states.LOADED, msg: '' });
 
       if (completed.status === ATTEMPT_STATUS.APPROVED) {
         await authenticateWithAttempt(completed.attemptId || attemptId);
@@ -224,18 +250,20 @@ export default function FaceLiveness({
       }
 
       if (completed.status === ATTEMPT_STATUS.LIVENESS_PASSED) {
+        setStatus({ state: states.LOADED, msg: '' });
         setView(VIEW.LIVENESS_PASSED);
         return;
       }
 
-      clearCaptureState();
-      setView(VIEW.TRN);
-      showLocalError(completed.failureCode, 'liveness_rejected');
+      // REJECTED / CONSUMED / other terminal: session is spent; show error and
+      // open a new attempt (new sessionId) so Amplify can capture again.
+      showLocalError('liveness_rejected');
+      await createAndMountAttempt({ clearError: false });
     } catch (error) {
       setStatus({ state: states.LOADED, msg: '' });
       clearCaptureState();
       setView(VIEW.TRN);
-      showLocalError(error?.response?.data?.code, 'attempt_complete_failed');
+      showLocalError(biometricErrorCode(error), 'attempt_complete_failed');
     }
   };
 
@@ -325,6 +353,7 @@ export default function FaceLiveness({
       {showCapture && (
         <div className="mt-4" data-testid="face-liveness-detector">
           <LivenessDetectorComponent
+            key={sessionId}
             sessionId={sessionId}
             region={region}
             onAnalysisComplete={handleAnalysisComplete}

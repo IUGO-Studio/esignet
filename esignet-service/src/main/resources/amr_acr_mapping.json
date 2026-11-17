@@ -6,7 +6,8 @@
     "L1-bio-device" :  [{ "type": "BIO", "count": 1 }],
     "Knowledge" :  [{ "type": "KBI" }],
     "Password" :  [{ "type": "PWD" }],
-    "ID-token" :  [{ "type": "IDT" }]
+    "ID-token" :  [{ "type": "IDT" }],
+    "FLV" :  [{ "type": "FLV" }]
   },
   "acr_amr" : {
     "mosip:idp:acr:static-code" : ["PIN"],
@@ -15,6 +16,7 @@
     "mosip:idp:acr:biometrics" : [ "L1-bio-device" ],
     "mosip:idp:acr:knowledge" : [ "Knowledge" ],
     "mosip:idp:acr:password" : [ "Password" ],
-    "mosip:idp:acr:id-token" : [ "ID-token" ]
+    "mosip:idp:acr:id-token" : [ "ID-token" ],
+    "mosip:idp:acr:face-liveness" : ["FLV"]
   }
 }
