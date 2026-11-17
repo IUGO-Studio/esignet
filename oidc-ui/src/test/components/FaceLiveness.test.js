@@ -199,7 +199,7 @@ describe('FaceLiveness', () => {
         {
           authFactorType: 'FLV',
           challenge: 'attempt-approved',
-          format: 'alpha-numeric',
+          format: 'uuid',
         },
       ]);
     });
