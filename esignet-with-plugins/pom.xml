@@ -18,6 +18,10 @@
 	<description> Project of MOSIP e-Signet with Plugins</description>
 	<url>https://github.com/mosip/esignet</url>
 
+	<modules>
+		<module>face-authenticator-plugin</module>
+	</modules>
+
 	<licenses>
 		<license>
 			<name>MPL 2.0</name>
@@ -89,6 +93,7 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-dependency-plugin</artifactId>
 				<version>3.5.0</version>
+				<inherited>false</inherited>
 				<executions>
 					<execution>
 						<id>copy</id>
@@ -104,7 +109,7 @@
 							<groupId>io.mosip.esignet</groupId>
 							<artifactId>mosip-identity-plugin</artifactId>
 							<version>${mosip-identity-plugin.version}</version>
-							<outputDirectory>${esignet-plugins.location}</outputDirectory>
+							<outputDirectory>${project.basedir}/target</outputDirectory>
 							<destFileName>${mosip-identity-plugin.fileName}</destFileName>
 							<type>jar</type>
 						</artifactItem>
@@ -112,7 +117,7 @@
 							<groupId>io.mosip.esignet</groupId>
 							<artifactId>mock-plugin</artifactId>
 							<version>${mock-plugin.version}</version>
-							<outputDirectory>${esignet-plugins.location}</outputDirectory>
+							<outputDirectory>${project.basedir}/target</outputDirectory>
 							<destFileName>${mock-plugin.fileName}</destFileName>
 							<type>jar</type>
 						</artifactItem>
@@ -120,7 +125,7 @@
 							<groupId>io.mosip.esignet.plugin.sunbirdrc</groupId>
 							<artifactId>sunbird-rc-plugin</artifactId>
 							<version>${sunbird-rc-plugin.version}</version>
-							<outputDirectory>${esignet-plugins.location}</outputDirectory>
+							<outputDirectory>${project.basedir}/target</outputDirectory>
 							<destFileName>${sunbird-rc-plugin.fileName}</destFileName>
 							<type>jar</type>
 						</artifactItem>
