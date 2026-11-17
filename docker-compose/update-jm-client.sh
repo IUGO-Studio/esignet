@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Updates the Jamaica Inji Web OAuth client in eSignet:
-# - OTP-only authentication (no password, Inji wallet, biometrics, or PIN)
+# - Face liveness authentication (ACR mosip:idp:acr:face-liveness / factor FLV)
 # - Disables signup banner and forgot-password link
 # - Sets JAMCTA purpose title/subtitle
 #
@@ -34,7 +34,7 @@ print(json.dumps({
       'io.mosip.residentapp://oauth',
     ],
     'userClaims': ['name', 'email', 'gender', 'phone_number', 'birthdate', 'picture', 'address'],
-    'authContextRefs': ['mosip:idp:acr:generated-code'],
+    'authContextRefs': ['mosip:idp:acr:face-liveness'],
     'status': 'ACTIVE',
     'grantTypes': ['authorization_code'],
     'clientAuthMethods': ['private_key_jwt'],
@@ -67,7 +67,7 @@ RESPONSE="$(curl -s -X PUT "${ESIGNET_URL}/v1/esignet/client-mgmt/client/${CLIEN
 echo "${RESPONSE}" | python3 -m json.tool
 
 if echo "${RESPONSE}" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if not d.get('errors') else 1)"; then
-  echo "OK: client updated (OTP-only, signup banner disabled)."
+  echo "OK: client updated (face-liveness, signup banner disabled)."
 else
   echo "ERROR: client update failed." >&2
   exit 1

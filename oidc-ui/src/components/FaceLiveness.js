@@ -118,12 +118,11 @@ export default function FaceLiveness({
     });
   };
 
-  const showEsignetError = (errorCode) => {
-    setErrorBanner({
-      errorCode: `${i18nKeyPrefix2}.${errorCode}`,
-      show: true,
-    });
-  };
+  /**
+   * Biometric Service returns { error }; some stubs still use { code }.
+   */
+  const biometricErrorCode = (error) =>
+    error?.response?.data?.error || error?.response?.data?.code;
 
   const handleTrnChange = (e) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, TRN_MAX_LENGTH);
@@ -165,7 +164,7 @@ export default function FaceLiveness({
       setStatus({ state: states.LOADED, msg: '' });
       clearCaptureState();
       setView(VIEW.TRN);
-      showLocalError(error?.response?.data?.code, 'attempt_create_failed');
+      showLocalError(biometricErrorCode(error), 'attempt_create_failed');
       return false;
     }
   };
@@ -179,6 +178,17 @@ export default function FaceLiveness({
     await createAndMountAttempt({ clearError: true });
   };
 
+  const failAuthenticateToTrn = (errorCode) => {
+    // Spent session must not remount; next Start creates a new attempt.
+    clearCaptureState();
+    setView(VIEW.TRN);
+    setStatus({ state: states.LOADED, msg: '' });
+    setErrorBanner({
+      errorCode,
+      show: true,
+    });
+  };
+
   const authenticateWithAttempt = async (approvedAttemptId) => {
     const transactionId = openIDConnectService.getTransactionId();
     const challengeList = [
@@ -190,39 +200,40 @@ export default function FaceLiveness({
     ];
 
     setStatus({ state: states.LOADING, msg: 'authenticating_msg' });
-    const authenticateResponse = await post_AuthenticateUser(
-      transactionId,
-      trn,
-      challengeList
-    );
-    setStatus({ state: states.LOADED, msg: '' });
+    try {
+      const authenticateResponse = await post_AuthenticateUser(
+        transactionId,
+        trn,
+        challengeList
+      );
+      setStatus({ state: states.LOADED, msg: '' });
 
-    const { response, errors } = authenticateResponse;
+      const { response, errors } = authenticateResponse;
 
-    if (errors !== null && errors.length > 0) {
-      if (errors[0].errorCode === 'invalid_transaction') {
-        redirectOnError(errors[0].errorCode, t2(`${errors[0].errorCode}`));
+      if (errors !== null && errors.length > 0) {
+        if (errors[0].errorCode === 'invalid_transaction') {
+          redirectOnError(errors[0].errorCode, t2(`${errors[0].errorCode}`));
+          return;
+        }
+        failAuthenticateToTrn(`${i18nKeyPrefix2}.${errors[0].errorCode}`);
         return;
       }
-      // Spent session must not remount; next Start creates a new attempt.
-      clearCaptureState();
-      setView(VIEW.TRN);
-      showEsignetError(errors[0].errorCode);
-      return;
+
+      setErrorBanner(null);
+      const params = buildRedirectParams({
+        nonce: openIDConnectService.getNonce(),
+        state: openIDConnectService.getState(),
+        oauthResponse: openIDConnectService.getOAuthDetails(),
+        consentAction: response.consentAction,
+        ui_locales: i18n.language,
+      });
+
+      navigate(process.env.PUBLIC_URL + '/claim-details' + params, {
+        replace: true,
+      });
+    } catch (error) {
+      failAuthenticateToTrn(`${i18nKeyPrefix2}.authentication_failed_msg`);
     }
-
-    setErrorBanner(null);
-    const params = buildRedirectParams({
-      nonce: openIDConnectService.getNonce(),
-      state: openIDConnectService.getState(),
-      oauthResponse: openIDConnectService.getOAuthDetails(),
-      consentAction: response.consentAction,
-      ui_locales: i18n.language,
-    });
-
-    navigate(process.env.PUBLIC_URL + '/claim-details' + params, {
-      replace: true,
-    });
   };
 
   const handleAnalysisComplete = async () => {
@@ -252,7 +263,7 @@ export default function FaceLiveness({
       setStatus({ state: states.LOADED, msg: '' });
       clearCaptureState();
       setView(VIEW.TRN);
-      showLocalError(error?.response?.data?.code, 'attempt_complete_failed');
+      showLocalError(biometricErrorCode(error), 'attempt_complete_failed');
     }
   };
 

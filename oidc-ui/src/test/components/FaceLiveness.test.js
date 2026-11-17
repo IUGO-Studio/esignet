@@ -142,7 +142,7 @@ describe('FaceLiveness', () => {
 
   test('create failure shows faceLiveness-prefixed banner key', async () => {
     createAttempt.mockRejectedValue({
-      response: { data: { code: 'UNKNOWN_BACKEND_CODE' } },
+      response: { data: { error: 'UNKNOWN_BACKEND_CODE' } },
     });
 
     renderComponent();
@@ -198,10 +198,10 @@ describe('FaceLiveness', () => {
   test('APPROVED calls authenticate with FLV challenge attemptId and TRN individualId', async () => {
     createAttempt.mockResolvedValue({
       ...createdAttempt,
-      attemptId: 'attempt-approved',
+      attemptId: '11111111-1111-4111-8111-111111111111',
     });
     completeAttempt.mockResolvedValue({
-      attemptId: 'attempt-approved',
+      attemptId: '11111111-1111-4111-8111-111111111111',
       status: ATTEMPT_STATUS.APPROVED,
       failureCode: null,
     });
@@ -218,13 +218,17 @@ describe('FaceLiveness', () => {
       expect(post_AuthenticateUser).toHaveBeenCalledWith('txn-1', '123456789', [
         {
           authFactorType: 'FLV',
-          challenge: 'attempt-approved',
-          format: 'alpha-numeric',
+          challenge: '11111111-1111-4111-8111-111111111111',
+          format: 'uuid',
         },
       ]);
     });
     expect(createAttempt).toHaveBeenCalledTimes(1);
     expect(completeAttempt).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith(
+      expect.stringContaining('/claim-details'),
+      { replace: true }
+    );
   });
 
   test('REJECTED shows error, does not authenticate, and starts a new session', async () => {
@@ -268,7 +272,7 @@ describe('FaceLiveness', () => {
     createAttempt
       .mockResolvedValueOnce(createdAttempt)
       .mockRejectedValueOnce({
-        response: { data: { code: 'AWS_UNAVAILABLE' } },
+        response: { data: { error: 'AWS_UNAVAILABLE' } },
       });
     completeAttempt.mockResolvedValue({
       attemptId: 'attempt-1',
@@ -288,6 +292,24 @@ describe('FaceLiveness', () => {
     expect(
       screen.getByText('faceLiveness.attempt_create_failed')
     ).toBeInTheDocument();
+  });
+
+  test('create failure reads Biometric Service error field', async () => {
+    createAttempt.mockRejectedValue({
+      response: { data: { error: 'AWS_UNAVAILABLE' } },
+    });
+
+    renderComponent();
+    fireEvent.change(screen.getByLabelText('trn_label'), {
+      target: { value: '123456789' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'start_liveness' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('faceLiveness.attempt_create_failed')
+      ).toBeInTheDocument();
+    });
   });
 
   test('authenticate error clears capture and shows eSignet banner on TRN', async () => {
@@ -316,6 +338,34 @@ describe('FaceLiveness', () => {
     expect(screen.getByText('errors.auth_failed')).toBeInTheDocument();
     expect(
       screen.queryByTestId('mock-face-liveness-detector')
+    ).not.toBeInTheDocument();
+  });
+
+  test('authenticate network failure shows authentication_failed_msg on TRN', async () => {
+    createAttempt.mockResolvedValue({
+      ...createdAttempt,
+      attemptId: 'attempt-approved',
+    });
+    completeAttempt.mockResolvedValue({
+      attemptId: 'attempt-approved',
+      status: ATTEMPT_STATUS.APPROVED,
+      failureCode: null,
+    });
+    post_AuthenticateUser.mockRejectedValue(new Error('Network Error'));
+
+    renderComponent();
+    await startCapture();
+    fireEvent.click(screen.getByText('complete-analysis'));
+
+    await waitFor(() => {
+      expect(post_AuthenticateUser).toHaveBeenCalled();
+    });
+    expect(await screen.findByLabelText('trn_label')).toBeInTheDocument();
+    expect(
+      screen.getByText('errors.authentication_failed_msg')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('faceLiveness.attempt_complete_failed')
     ).not.toBeInTheDocument();
   });
 
