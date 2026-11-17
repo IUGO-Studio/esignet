@@ -176,12 +176,14 @@ describe('FaceLiveness', () => {
   });
 
   test('APPROVED calls authenticate with FLV challenge attemptId and TRN individualId', async () => {
+    // Opaque UUID (36 chars) — matches mosip.esignet.auth-challenge.FLV length rules.
+    const approvedAttemptId = '550e8400-e29b-41d4-a716-446655440000';
     createAttempt.mockResolvedValue({
       ...createdAttempt,
-      attemptId: 'attempt-approved',
+      attemptId: approvedAttemptId,
     });
     completeAttempt.mockResolvedValue({
-      attemptId: 'attempt-approved',
+      attemptId: approvedAttemptId,
       status: ATTEMPT_STATUS.APPROVED,
       failureCode: null,
     });
@@ -198,7 +200,7 @@ describe('FaceLiveness', () => {
       expect(post_AuthenticateUser).toHaveBeenCalledWith('txn-1', '123456789', [
         {
           authFactorType: 'FLV',
-          challenge: 'attempt-approved',
+          challenge: approvedAttemptId,
           format: 'uuid',
         },
       ]);

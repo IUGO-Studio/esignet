@@ -2,10 +2,13 @@
  * Local stub for Biometric Service /attempts used to verify oidc-ui FLV wiring.
  * Usage: node scripts/flv-attempts-stub.js [APPROVED|LIVENESS_PASSED|REJECTED]
  */
+const crypto = require('crypto');
 const http = require('http');
 
 const completeStatus = process.argv[2] || 'APPROVED';
 const port = Number(process.env.PORT || 8099);
+// Must be a 36-char UUID: eSignet auth-challenge.FLV validates format=uuid and length 36.
+const STUB_ATTEMPT_ID = crypto.randomUUID();
 
 const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -34,7 +37,7 @@ const server = http.createServer((req, res) => {
       res.writeHead(201, { 'Content-Type': 'application/json' });
       res.end(
         JSON.stringify({
-          attemptId: 'stub-attempt-id',
+          attemptId: STUB_ATTEMPT_ID,
           sessionId: 'stub-session-id',
           credentials: {
             accessKeyId: 'ASIATEST',

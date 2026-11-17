@@ -16,16 +16,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 @ExtendWith(MockitoExtension.class)
 public class FaceLivenessAmrAcrMappingTest {
 
     private static final String FACE_LIVENESS_ACR = "mosip:idp:acr:face-liveness";
+    private static final String MAPPING_RESOURCE = "/amr_acr_mapping.json";
 
     private final AuthenticationContextClassRefUtil authenticationContextClassRefUtil =
             new AuthenticationContextClassRefUtil();
@@ -33,8 +34,12 @@ public class FaceLivenessAmrAcrMappingTest {
 
     @BeforeEach
     public void setup() throws IOException {
-        Path mappingPath = Path.of("src/main/resources/amr_acr_mapping.json");
-        String mappingJson = Files.readString(mappingPath, StandardCharsets.UTF_8);
+        String mappingJson;
+        try (InputStream in = Objects.requireNonNull(
+                getClass().getResourceAsStream(MAPPING_RESOURCE),
+                "Missing classpath resource " + MAPPING_RESOURCE)) {
+            mappingJson = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
         ReflectionTestUtils.setField(authenticationContextClassRefUtil, "objectMapper", mapper);
         ReflectionTestUtils.setField(authenticationContextClassRefUtil, "mappingJson", mappingJson);
     }
