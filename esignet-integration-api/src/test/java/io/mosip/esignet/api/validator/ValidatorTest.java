@@ -148,6 +148,58 @@ public class ValidatorTest {
     }
 
     @Test
+    public void authChallengeFactorFormatValidator_validFlvUuid_thenPass() {
+        AuthChallenge authChallenge = new AuthChallenge();
+        authChallenge.setAuthFactorType("FLV");
+        authChallenge.setFormat("uuid");
+        authChallenge.setChallenge("550e8400-e29b-41d4-a716-446655440000");
+        Mockito.when(environment.getProperty("mosip.esignet.auth-challenge.FLV.format", String.class)).thenReturn("uuid");
+        Mockito.when(environment.getProperty("mosip.esignet.auth-challenge.FLV.min-length", Integer.TYPE, 50)).thenReturn(36);
+        Mockito.when(environment.getProperty("mosip.esignet.auth-challenge.FLV.max-length", Integer.TYPE, 50)).thenReturn(36);
+        boolean isValid = authChallengeFactorFormatValidator.isValid(authChallenge, constraintValidatorContext);
+        assertTrue(isValid);
+    }
+
+    @Test
+    public void authChallengeFactorFormatValidator_flvChallengeTooShort_thenFail() {
+        AuthChallenge authChallenge = new AuthChallenge();
+        authChallenge.setAuthFactorType("FLV");
+        authChallenge.setFormat("uuid");
+        authChallenge.setChallenge("550e8400-e29b-41d4-a716-44665544000");
+        Mockito.when(environment.getProperty("mosip.esignet.auth-challenge.FLV.format", String.class)).thenReturn("uuid");
+        Mockito.when(environment.getProperty("mosip.esignet.auth-challenge.FLV.min-length", Integer.TYPE, 50)).thenReturn(36);
+        Mockito.when(environment.getProperty("mosip.esignet.auth-challenge.FLV.max-length", Integer.TYPE, 50)).thenReturn(36);
+        boolean isValid = authChallengeFactorFormatValidator.isValid(authChallenge, constraintValidatorContext);
+        assertFalse(isValid);
+    }
+
+    @Test
+    public void authChallengeFactorFormatValidator_flvChallengeTooLong_thenFail() {
+        AuthChallenge authChallenge = new AuthChallenge();
+        authChallenge.setAuthFactorType("FLV");
+        authChallenge.setFormat("uuid");
+        authChallenge.setChallenge("550e8400-e29b-41d4-a716-4466554400000");
+        Mockito.when(environment.getProperty("mosip.esignet.auth-challenge.FLV.format", String.class)).thenReturn("uuid");
+        Mockito.when(environment.getProperty("mosip.esignet.auth-challenge.FLV.min-length", Integer.TYPE, 50)).thenReturn(36);
+        Mockito.when(environment.getProperty("mosip.esignet.auth-challenge.FLV.max-length", Integer.TYPE, 50)).thenReturn(36);
+        boolean isValid = authChallengeFactorFormatValidator.isValid(authChallenge, constraintValidatorContext);
+        assertFalse(isValid);
+    }
+
+    @Test
+    public void authChallengeFactorFormatValidator_flvInvalidFormat_thenFail() {
+        AuthChallenge authChallenge = new AuthChallenge();
+        authChallenge.setAuthFactorType("FLV");
+        authChallenge.setFormat("alpha-numeric");
+        authChallenge.setChallenge("550e8400-e29b-41d4-a716-446655440000");
+        Mockito.when(environment.getProperty("mosip.esignet.auth-challenge.FLV.format", String.class)).thenReturn("uuid");
+        Mockito.when(constraintValidatorContext.buildConstraintViolationWithTemplate(anyString()))
+                .thenReturn(mock(ConstraintValidatorContext.ConstraintViolationBuilder.class));
+        boolean isValid = authChallengeFactorFormatValidator.isValid(authChallenge, constraintValidatorContext);
+        assertFalse(isValid);
+    }
+
+    @Test
     public void authChallengeFactorFormatValidator_withKBIAuthFactor_thenPass() throws KBIFormException {
         ObjectMapper objectMapper = new ObjectMapper();
         ResourceLoader resourceLoader = Mockito.mock(ResourceLoader.class);
