@@ -134,19 +134,23 @@ export default function FaceLiveness({
   const isTrnValid = () =>
     TRN_DIGITS_ONLY.test(trn) && trn.length === TRN_MAX_LENGTH;
 
-  const startAttempt = async () => {
-    if (!isTrnValid()) {
-      showLocalError('invalid_trn');
-      return;
-    }
-
+  const getAuthTransactionIdForRequest = () => {
     const oidcTransactionId = openIDConnectService.getTransactionId();
-    const authTransactionId = getAuthTransactionId(
-      oidcTransactionId,
-      authTxnIdLength
-    );
+    return getAuthTransactionId(oidcTransactionId, authTxnIdLength);
+  };
+
+  /**
+   * Creates a Face Liveness attempt and mounts capture.
+   * @param {{ clearError?: boolean }} options when clearError is false the
+   * current banner (e.g. liveness_rejected) is kept across the new session.
+   * @returns {Promise<boolean>} true when capture is ready
+   */
+  const createAndMountAttempt = async ({ clearError = true } = {}) => {
+    const authTransactionId = getAuthTransactionIdForRequest();
     setStatus({ state: states.LOADING, msg: 'creating_attempt_msg' });
-    setErrorBanner(null);
+    if (clearError) {
+      setErrorBanner(null);
+    }
 
     try {
       const created = await createAttempt(authTransactionId, trn);
@@ -156,10 +160,23 @@ export default function FaceLiveness({
       setBrowserCredentials(created.credentials);
       setStatus({ state: states.LOADED, msg: '' });
       setView(VIEW.CAPTURE);
+      return true;
     } catch (error) {
       setStatus({ state: states.LOADED, msg: '' });
+      clearCaptureState();
+      setView(VIEW.TRN);
       showLocalError(error?.response?.data?.code, 'attempt_create_failed');
+      return false;
     }
+  };
+
+  const startAttempt = async () => {
+    if (!isTrnValid()) {
+      showLocalError('invalid_trn');
+      return;
+    }
+
+    await createAndMountAttempt({ clearError: true });
   };
 
   const authenticateWithAttempt = async (approvedAttemptId) => {
@@ -187,6 +204,9 @@ export default function FaceLiveness({
         redirectOnError(errors[0].errorCode, t2(`${errors[0].errorCode}`));
         return;
       }
+      // Spent session must not remount; next Start creates a new attempt.
+      clearCaptureState();
+      setView(VIEW.TRN);
       showEsignetError(errors[0].errorCode);
       return;
     }
@@ -206,17 +226,12 @@ export default function FaceLiveness({
   };
 
   const handleAnalysisComplete = async () => {
-    const oidcTransactionId = openIDConnectService.getTransactionId();
-    const authTransactionId = getAuthTransactionId(
-      oidcTransactionId,
-      authTxnIdLength
-    );
+    const authTransactionId = getAuthTransactionIdForRequest();
     setStatus({ state: states.LOADING, msg: 'completing_attempt_msg' });
     setErrorBanner(null);
 
     try {
       const completed = await completeAttempt(attemptId, authTransactionId);
-      setStatus({ state: states.LOADED, msg: '' });
 
       if (completed.status === ATTEMPT_STATUS.APPROVED) {
         await authenticateWithAttempt(completed.attemptId || attemptId);
@@ -224,13 +239,15 @@ export default function FaceLiveness({
       }
 
       if (completed.status === ATTEMPT_STATUS.LIVENESS_PASSED) {
+        setStatus({ state: states.LOADED, msg: '' });
         setView(VIEW.LIVENESS_PASSED);
         return;
       }
 
-      clearCaptureState();
-      setView(VIEW.TRN);
-      showLocalError(completed.failureCode, 'liveness_rejected');
+      // REJECTED / CONSUMED / other terminal: session is spent; show error and
+      // open a new attempt (new sessionId) so Amplify can capture again.
+      showLocalError('liveness_rejected');
+      await createAndMountAttempt({ clearError: false });
     } catch (error) {
       setStatus({ state: states.LOADED, msg: '' });
       clearCaptureState();
@@ -325,6 +342,7 @@ export default function FaceLiveness({
       {showCapture && (
         <div className="mt-4" data-testid="face-liveness-detector">
           <LivenessDetectorComponent
+            key={sessionId}
             sessionId={sessionId}
             region={region}
             onAnalysisComplete={handleAnalysisComplete}

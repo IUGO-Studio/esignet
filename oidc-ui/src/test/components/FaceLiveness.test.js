@@ -38,8 +38,14 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
 }));
 
-const MockLivenessDetector = ({ onAnalysisComplete, onError, onUserCancel }) => (
+const MockLivenessDetector = ({
+  sessionId,
+  onAnalysisComplete,
+  onError,
+  onUserCancel,
+}) => (
   <div data-testid="mock-face-liveness-detector">
+    <span data-testid="detector-session-id">{sessionId}</span>
     <button type="button" onClick={() => onAnalysisComplete()}>
       complete-analysis
     </button>
@@ -185,6 +191,7 @@ describe('FaceLiveness', () => {
       );
     });
     expect(post_AuthenticateUser).not.toHaveBeenCalled();
+    expect(createAttempt).toHaveBeenCalledTimes(1);
     expect(await screen.findByTestId('liveness-passed')).toBeInTheDocument();
   });
 
@@ -216,10 +223,20 @@ describe('FaceLiveness', () => {
         },
       ]);
     });
+    expect(createAttempt).toHaveBeenCalledTimes(1);
+    expect(completeAttempt).toHaveBeenCalledTimes(1);
   });
 
-  test('REJECTED does not call authenticate', async () => {
-    createAttempt.mockResolvedValue(createdAttempt);
+  test('REJECTED shows error, does not authenticate, and starts a new session', async () => {
+    createAttempt
+      .mockResolvedValueOnce(createdAttempt)
+      .mockResolvedValueOnce({
+        attemptId: 'attempt-2',
+        sessionId: 'session-2',
+        credentials: {
+          ...createdAttempt.credentials,
+        },
+      });
     completeAttempt.mockResolvedValue({
       attemptId: 'attempt-1',
       status: ATTEMPT_STATUS.REJECTED,
@@ -231,9 +248,75 @@ describe('FaceLiveness', () => {
     fireEvent.click(screen.getByText('complete-analysis'));
 
     await waitFor(() => {
-      expect(completeAttempt).toHaveBeenCalled();
+      expect(createAttempt).toHaveBeenCalledTimes(2);
     });
     expect(post_AuthenticateUser).not.toHaveBeenCalled();
+    expect(createAttempt).toHaveBeenNthCalledWith(
+      2,
+      expectedAuthTransactionId,
+      '123456789'
+    );
+    expect(
+      await screen.findByText('faceLiveness.liveness_rejected')
+    ).toBeInTheDocument();
+    expect(await screen.findByTestId('detector-session-id')).toHaveTextContent(
+      'session-2'
+    );
+  });
+
+  test('REJECTED falls back to TRN when the new attempt create fails', async () => {
+    createAttempt
+      .mockResolvedValueOnce(createdAttempt)
+      .mockRejectedValueOnce({
+        response: { data: { code: 'AWS_UNAVAILABLE' } },
+      });
+    completeAttempt.mockResolvedValue({
+      attemptId: 'attempt-1',
+      status: ATTEMPT_STATUS.REJECTED,
+      failureCode: 'LOW_CONFIDENCE',
+    });
+
+    renderComponent();
+    await startCapture();
+    fireEvent.click(screen.getByText('complete-analysis'));
+
+    await waitFor(() => {
+      expect(createAttempt).toHaveBeenCalledTimes(2);
+    });
+    expect(post_AuthenticateUser).not.toHaveBeenCalled();
+    expect(await screen.findByLabelText('trn_label')).toBeInTheDocument();
+    expect(
+      screen.getByText('faceLiveness.attempt_create_failed')
+    ).toBeInTheDocument();
+  });
+
+  test('authenticate error clears capture and shows eSignet banner on TRN', async () => {
+    createAttempt.mockResolvedValue({
+      ...createdAttempt,
+      attemptId: 'attempt-approved',
+    });
+    completeAttempt.mockResolvedValue({
+      attemptId: 'attempt-approved',
+      status: ATTEMPT_STATUS.APPROVED,
+      failureCode: null,
+    });
+    post_AuthenticateUser.mockResolvedValue({
+      response: null,
+      errors: [{ errorCode: 'auth_failed' }],
+    });
+
+    renderComponent();
+    await startCapture();
+    fireEvent.click(screen.getByText('complete-analysis'));
+
+    await waitFor(() => {
+      expect(post_AuthenticateUser).toHaveBeenCalled();
+    });
+    expect(await screen.findByLabelText('trn_label')).toBeInTheDocument();
+    expect(screen.getByText('errors.auth_failed')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('mock-face-liveness-detector')
+    ).not.toBeInTheDocument();
   });
 
   test('camera error does not call authenticate', async () => {
