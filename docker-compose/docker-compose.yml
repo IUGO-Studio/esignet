@@ -1,8 +1,10 @@
 services:
   database:
     image: "postgres:bookworm"
+    # Host 5455 avoids clash with other local stacks on this EC2:
+    # mimoto 5432, certify 5433, inji-verify 5434. Inside compose: database:5432.
     ports:
-      - 5455:5432
+      - "5455:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -12,8 +14,10 @@ services:
   redis:
     image: redis:6.0
     container_name: redis-server
+    # Host 6380 so it does not clash with biometric-service Redis on 6379.
+    # Inside the compose network eSignet still uses redis-server:6379.
     ports:
-      - "6379:6379"
+      - "6380:6379"
     restart: always
 
   mock-identity-system:
