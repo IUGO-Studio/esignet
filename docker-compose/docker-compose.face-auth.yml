@@ -1,14 +1,34 @@
 # Override to load the Jamaica Face Authenticator instead of the mock plugin.
 # Usage:
-#   docker compose -f docker-compose.yml -f docker-compose.face-auth.yml up esignet
+#   (cd ../esignet-with-plugins && mvn clean package -Dgpg.skip -DskipTests)
+#   docker compose -f docker-compose.yml -f docker-compose.face-auth.yml up --build
 #
 # Requires a reachable biometric service and a matching plugin credential.
+# Biometric on the EC2/host :8080: keep the host.docker.internal default below
+# (extra_hosts maps it on Linux). Same Docker network: set
+# MOSIP_ESIGNET_JAMAICA_BIOMETRIC_BASE_URL=http://biometric-service:8080 and
+# BIOMETRIC_SERVICE_HOST=biometric-service.
 services:
   esignet:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Stock mosipid/esignet:1.8.0 has no face-liveness ACR; mount the aws mapping.
+      - ../esignet-service/src/main/resources/amr_acr_mapping.json:/home/mosip/amr_acr_mapping.json:ro
     environment:
       - plugin_name_env=jamaica-face-authenticator.jar
       - MOSIP_ESIGNET_INTEGRATION_SCAN_BASE_PACKAGE=io.mosip.esignet.jamaica.integration
       - MOSIP_ESIGNET_INTEGRATION_AUTHENTICATOR=JamaicaFaceAuthenticator
       - MOSIP_ESIGNET_INTEGRATION_KEY_BINDER=NoOpKeyBinder
+      - MOSIP_ESIGNET_AMR_ACR_MAPPING_FILE_PATH=file:/home/mosip/amr_acr_mapping.json
+      - MOSIP_ESIGNET_AUTH_CHALLENGE_FLV_FORMAT=uuid
+      - MOSIP_ESIGNET_AUTH_CHALLENGE_FLV_MIN_LENGTH=36
+      - MOSIP_ESIGNET_AUTH_CHALLENGE_FLV_MAX_LENGTH=36
       - MOSIP_ESIGNET_JAMAICA_BIOMETRIC_BASE_URL=${MOSIP_ESIGNET_JAMAICA_BIOMETRIC_BASE_URL:-http://host.docker.internal:8080}
       - MOSIP_ESIGNET_JAMAICA_PLUGIN_CREDENTIAL=${MOSIP_ESIGNET_JAMAICA_PLUGIN_CREDENTIAL:?set MOSIP_ESIGNET_JAMAICA_PLUGIN_CREDENTIAL}
+
+  esignet-ui:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - BIOMETRIC_SERVICE_HOST=${BIOMETRIC_SERVICE_HOST:-host.docker.internal}

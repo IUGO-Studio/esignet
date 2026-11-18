@@ -33,7 +33,12 @@ services:
       - database
 
   esignet:
-    image: "mosipid/esignet-with-plugins:1.8.0"
+    # Requires jars in esignet-with-plugins/target first:
+    #   (cd ../esignet-with-plugins && mvn clean package -Dgpg.skip -DskipTests)
+    build:
+      context: ../esignet-with-plugins
+      dockerfile: Dockerfile
+    image: "inji-jm/esignet-with-plugins:flv-local"
     user: root
     ports:
       - 8088:8088
