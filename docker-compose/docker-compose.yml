@@ -102,5 +102,7 @@ services:
       - ./jamaica-theme/images/top_left_bg_logo.svg:/usr/share/nginx/html/images/top_left_bg_logo.svg
       - ./jamaica-theme/images/bottom_right_bg_logo.svg:/usr/share/nginx/html/images/bottom_right_bg_logo.svg
     entrypoint: ["/bin/sh", "/tmp/oidc-ui-entrypoint.sh"]
+    # Explicit CMD: custom entrypoint replaces image ENTRYPOINT and otherwise leaves $@ empty.
+    command: ["sh", "-c", "echo starting nginx; nginx; sleep infinity"]
     depends_on:
       - esignet

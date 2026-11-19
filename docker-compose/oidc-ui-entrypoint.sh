@@ -14,4 +14,9 @@ if [ ! -f "${plugins_temp}/sign-in-button-plugin.zip" ]; then
     -O "${plugins_temp}/sign-in-button-plugin.zip"
 fi
 
+# Overriding entrypoint drops the image CMD; keep nginx running after configure_start.
+if [ "$#" -eq 0 ]; then
+  set -- sh -c 'echo starting nginx; nginx; sleep infinity'
+fi
+
 exec sh /home/mosip/configure_start.sh "$@"
