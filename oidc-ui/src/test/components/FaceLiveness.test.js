@@ -43,9 +43,13 @@ const MockLivenessDetector = ({
   onAnalysisComplete,
   onError,
   onUserCancel,
+  config,
 }) => (
   <div data-testid="mock-face-liveness-detector">
     <span data-testid="detector-session-id">{sessionId}</span>
+    <span data-testid="detector-has-credentials">
+      {typeof config?.credentialProvider === 'function' ? 'yes' : 'no'}
+    </span>
     <button type="button" onClick={() => onAnalysisComplete()}>
       complete-analysis
     </button>
@@ -170,6 +174,10 @@ describe('FaceLiveness', () => {
       '123456789'
     );
     expect(expectedAuthTransactionId).toBe('1nxt1nxt1n');
+    // Amplify FaceLivenessDetector only reads STS from config.credentialProvider.
+    expect(screen.getByTestId('detector-has-credentials')).toHaveTextContent(
+      'yes'
+    );
   });
 
   test('onAnalysisComplete calls complete and not authenticate when LIVENESS_PASSED', async () => {

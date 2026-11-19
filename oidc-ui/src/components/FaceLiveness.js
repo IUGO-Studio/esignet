@@ -267,7 +267,9 @@ export default function FaceLiveness({
     }
   };
 
-  const handleLivenessError = () => {
+  const handleLivenessError = (error) => {
+    // Amplify may pass { error } or a raw Error; surface it for debugging.
+    console.error('Face Liveness capture error', error?.error || error);
     clearCaptureState();
     setView(VIEW.TRN);
     showLocalError('liveness_capture_failed');
@@ -359,7 +361,9 @@ export default function FaceLiveness({
             onAnalysisComplete={handleAnalysisComplete}
             onError={handleLivenessError}
             onUserCancel={handleUserCancel}
-            credentialProvider={credentialProvider}
+            // FaceLivenessDetector only honors STS via config.credentialProvider
+            // (top-level credentialProvider is ignored; Cognito fetchAuthSession is used).
+            config={{ credentialProvider }}
           />
         </div>
       )}
