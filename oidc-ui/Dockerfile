@@ -90,8 +90,8 @@ WORKDIR /home/${container_user}
 # install packages and create user
 RUN groupadd -g ${container_user_gid} ${container_user_group} \
     && useradd -u ${container_user_uid} -g ${container_user_group} -s /bin/sh -m ${container_user} \
-    && mkdir -p /var/run/nginx /var/tmp/nginx ${i18n_path} ${theme_path} ${image_path} ${plugins_path} ${plugins_path}/temp \
-    && chown -R ${container_user}:${container_user} /usr/share/nginx /var/run/nginx /var/tmp/nginx ${i18n_path} ${theme_path} ${image_path} ${plugins_path} ${plugins_path}/temp
+    && mkdir -p /var/run/nginx /var/tmp/nginx ${i18n_path} ${theme_path} ${image_path} \
+    && chown -R ${container_user}:${container_user} /usr/share/nginx /var/run/nginx /var/tmp/nginx ${i18n_path} ${theme_path} ${image_path}
 
 ADD configure_start.sh configure_start.sh
 
@@ -102,7 +102,9 @@ COPY ./nginx/nginx.conf /etc/nginx/nginx.conf
 # copy build files to nginx html directory
 COPY --from=build_esignet_ui /build  ${work_dir}
 
-RUN echo "DEFAULT_THEME=$DEFAULT_THEME" >> ${work_dir}/env.env \
+# Create plugins/temp AFTER copying the UI build so a build-time plugins/ path cannot wipe it.
+RUN mkdir -p ${plugins_path}/temp \
+    && echo "DEFAULT_THEME=$DEFAULT_THEME" >> ${work_dir}/env.env \
     && echo "DEFAULT_LANG=$DEFAULT_LANG" >> ${work_dir}/env.env \
     && echo "DEFAULT_WELLKNOWN=$DEFAULT_WELLKNOWN" >> ${work_dir}/env.env \
     && echo "DEFAULT_FEVICON=$DEFAULT_FEVICON" >> ${work_dir}/env.env env \

@@ -5,4 +5,13 @@ set -e
 host="${BIOMETRIC_SERVICE_HOST:-biometric-service}"
 sed "s/__BIOMETRIC_SERVICE_HOST__/${host}/g" /tmp/nginx.conf.template > /etc/nginx/nginx.conf
 
+# configure_start.sh always cds into plugins/temp; ensure it exists at runtime.
+plugins_temp="/usr/share/nginx/html/plugins/temp"
+mkdir -p "${plugins_temp}"
+if [ ! -f "${plugins_temp}/sign-in-button-plugin.zip" ]; then
+  wget --no-check-certificate --no-cache --no-cookies \
+    "${SIGN_IN_WITH_ESIGNET_PLUGIN_URL:-https://raw.githubusercontent.com/mosip/artifactory-ref-impl/master/artifacts/src/mosip-plugins/sign-in-with-esignet/sign-in-with-esignet.zip}" \
+    -O "${plugins_temp}/sign-in-button-plugin.zip"
+fi
+
 exec sh /home/mosip/configure_start.sh "$@"

@@ -22,6 +22,7 @@ import io.mosip.esignet.api.exception.SendOtpException;
 import io.mosip.esignet.api.spi.Authenticator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -57,6 +58,8 @@ public class JamaicaFaceAuthenticator implements Authenticator {
     private final BiometricAttemptClient biometricAttemptClient;
     private final ObjectMapper objectMapper;
 
+    // Required: multiple constructors exist for tests; without @Autowired Spring looks for a no-arg ctor.
+    @Autowired
     public JamaicaFaceAuthenticator(
             @Value("${mosip.esignet.jamaica.biometric-base-url}") String biometricBaseUrl,
             @Value("${mosip.esignet.jamaica.plugin-credential}") String pluginCredential,
