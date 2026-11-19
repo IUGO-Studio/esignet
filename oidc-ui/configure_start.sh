@@ -62,13 +62,14 @@ echo "Replacing public url placeholder with public url"
 workingDir=$nginx_dir/html
 if [ -z "$OIDC_UI_PUBLIC_URL" ]; then
   rpCmd="s/_PUBLIC_URL_//g"
-  grep -rl '_PUBLIC_URL_' $workingDir | xargs sed -i $rpCmd
+  # Alpine BusyBox sed needs -e; plain `sed -i <script>` treats the script as the backup suffix.
+  grep -rl '_PUBLIC_URL_' "$workingDir" | xargs -r sed -i -e "$rpCmd"
 else
   workingDir=$nginx_dir/${OIDC_UI_PUBLIC_URL}
   mkdir $workingDir
   mv  -v $nginx_dir/html/* $workingDir/
   rpCmd="s/_PUBLIC_URL_/\/${OIDC_UI_PUBLIC_URL}/g"
-  grep -rl '_PUBLIC_URL_' $workingDir | xargs sed -i $rpCmd
+  grep -rl '_PUBLIC_URL_' "$workingDir" | xargs -r sed -i -e "$rpCmd"
 fi
 
 echo "Replacing completed."
