@@ -16,7 +16,7 @@ CLIENT_ID="${CLIENT_ID:-IIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0B5NR}"
 REDIRECT_URI="${REDIRECT_URI:-https://web.inji-jm.iugolabs.com/redirect}"
 LOGO_URI="${LOGO_URI:-https://certify.inji-jm.iugolabs.com/assets/logo_issuer.png}"
 
-REQUEST_TIME="$(python3 -c 'import datetime; print(datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z"))')"
+REQUEST_TIME="$(python3 -c 'from datetime import datetime, timezone; print(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"))')"
 export REQUEST_TIME LOGO_URI REDIRECT_URI
 
 BODY="$(python3 -c "
